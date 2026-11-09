@@ -1,13 +1,72 @@
+/**
+ * @file El Guardián de la Interfaz: personalización del entorno visual de la página
+ * y persistencia de las preferencias del usuario mediante cookies nativas.
+ */
+ 
+/**
+ * Botón "Guardar Preferencias". Al pulsarlo se almacenan las tres cookies.
+ * @type {HTMLButtonElement}
+ */
+
 const botonGuardado = document.getElementById("btn-guardar-preferencias");
+/**
+ * Campo de texto con el nombre de usuario.
+ * @type {HTMLInputElement}
+ */
 const nombreUsuario = document.getElementById("nombre-usuario");
+/**
+ * Botón "Restablecer Preferencias". Elimina las cookies y devuelve la interfaz a su estado inicial.
+ * @type {HTMLButtonElement}
+ */
 const botonRestablecer = document.getElementById("btn-restablecer-preferencias");
+/**
+ * Botón "Restablecer Preferencias". Elimina las cookies y devuelve la interfaz a su estado inicial.
+ * @type {HTMLButtonElement}
+ */
 
+const contenedorBienvenida = document.getElementById("contenedor-bienvenida");
+/**
+ * Referencia al H2 de bienvenida generado dinámicamente. Vale null mientras no exista en el DOM.
+ * @type {HTMLHeadingElement|null}
+ */
+let tituloBienvenida = null;
+ 
 
-function setCookie(nombre, valor) {
+/**
+ * Crea o actualiza una cookie.
+ * El valor se codifica con encodeURIComponent(). Si se indica un número de días,
+ * la fecha de caducidad se calcula con el objeto Date (fecha actual + días) y se
+ * añade como atributo "expires" en formato UTC. Si no se indica, la cookie es de
+ * sesión (sin "expires" ni "max-age") y se elimina al cerrar el navegador.
+ * Se fija path=/ para que la cookie sea accesible desde toda la aplicación.
+ *
+ * @param {string} nombre - Nombre de la cookie.
+ * @param {string} valor - Valor que se va a almacenar.
+ * @param {number} [dia] - Días hasta la caducidad. Si se omite, cookie de sesión.
+ * @returns {void}
+ */
+
+function setCookie(nombre, valor, dia) {
   let cookie = nombre + "=" + encodeURIComponent(valor);
+    if(dia){
+        const fecha = new Date();
+        fecha.setDate(fecha.getDate() + dia);
+        cookie += "; expires=" + fecha.toUTCString();
+    }
+
   cookie += "; path=/";
   document.cookie = cookie;
 }
+
+/**
+ * Lee el valor de una cookie por su nombre.
+ * document.cookie devuelve todas las cookies en una única cadena ("a=1; b=2"),
+ * por lo que se divide por "; ", después cada par por "=", se compara la clave
+ * y se decodifica el valor con decodeURIComponent().
+ *
+ * @param {string} nombre - Nombre de la cookie que se busca.
+ * @returns {string|null} Valor decodificado, o null si la cookie no existe.
+ */
 
 function getCookie(nombre) {
 const pares = document.cookie.split("; ");
@@ -20,33 +79,67 @@ return decodeURIComponent(valor);
 return null; // No encontrada
 }
 
+/**
+ * Guarda las preferencias del usuario en tres cookies distintas:
+ * "nombre" y "color" caducan a los 7 días; "tema" es una cookie de sesión.
+ *
+ * @returns {void}
+ */
 
 function guardarPreferencias(){
-    setCookie("nombre", nombreUsuario.value);
-    setCookie("color", cambioColorFondo.value);
+    setCookie("nombre", nombreUsuario.value, 7);
+    setCookie("color", cambioColorFondo.value, 7);
     setCookie("tema", cambioTema.value);
 }
+
+/**
+ * Lee las cookies guardadas y restaura la configuración al cargar la página:
+ * rellena el campo de nombre y muestra la bienvenida, aplica el color de fondo
+ * y activa el tema visual, actualizando también los controles del formulario.
+ *
+ * @returns {void}
+ */
+
 function restaurarPreferencias(){
    const nombre = getCookie("nombre");
    const color = getCookie("color");
    const tema = getCookie("tema");
 
-   switch (preferencia) {
-    case "nombre":
-        nombreUsuario.value = valor;
-        break;
-    case "color":
-        cambioColorFondo.value = valor;
-        break;
-    case "tema":
-        cambioTema.value = valor;
-        break;
-   }
-}
+  if(nombre) {
+    nombreUsuario.value = nombre;
+    mostrarBienvenida(nombre);
+  }
+  if(color){
+    cambiarColorFondo(color);
+    cambioColorFondo.value = color;
+  }
+  if(tema){
+    cambiarTema(tema);
+    cambioTema.value = tema;
+  }
+
+  }
+
+  /**
+ * Elimina una cookie asignándole una fecha de caducidad ya pasada (1 de enero de 1970).
+ * El navegador la descarta de inmediato.
+ *
+ * @param {string} nombre - Nombre de la cookie que se quiere borrar.
+ * @returns {void}
+ */
+
 
 function borrarCookie(nombre) {
   document.cookie = nombre + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
 }
+
+/**
+ * Restablece las preferencias: borra las tres cookies, resetea el formulario a sus
+ * valores iniciales, devuelve el fondo y el tema a su estado por defecto y elimina
+ * del DOM el encabezado de bienvenida con remove(), todo sin recargar la página.
+ *
+ * @returns {void}
+ */
 
 function restablecerPreferencias(){
     borrarCookie("nombre");
@@ -56,23 +149,68 @@ function restablecerPreferencias(){
     document.getElementById("formulario").reset();
     cambiarColorFondo("#ffffff");
     cambiarTema("claro");
+
+    if(tituloBienvenida){
+        tituloBienvenida.remove();
+    } 
+    
+       
 }
 
-const h2 = document.createElement("h2");
-h2.textContent = "Diseña tu Interfaz";
-document.getElementById("h2-bienvenida").appendChild(h2);
+
+/**
+ * Genera el encabezado de bienvenida de forma dinámica: crea un H2 con
+ * document.createElement(), le asigna el texto con textContent y lo inyecta
+ * en el contenedor con appendChild(). No se utiliza document.write().
+ * La referencia se guarda en tituloBienvenida para poder eliminarlo después.
+ *
+ * @param {string} nombre - Nombre del usuario que se muestra en el saludo.
+ * @returns {void}
+ */
+
+function mostrarBienvenida(nombre) {
+
+  tituloBienvenida = document.createElement("h2");
+ 
+  tituloBienvenida.textContent = "¡Bienvenido de nuevo, " + nombre + "!";
+ 
+  contenedorBienvenida.appendChild(tituloBienvenida);
+}
+
+/**
+ * Selector de color (input type="color") que controla el fondo de la página.
+ * @type {HTMLInputElement}
+ */
 
 const cambioColorFondo = document.getElementById("color-fondo");
+
+/**
+ * Aplica un color de fondo a la página de forma inmediata
+ * mediante document.body.style.backgroundColor.
+ *
+ * @param {string} color - Color en formato hexadecimal (por ejemplo "#0A988B").
+ * @returns {void}
+ */
 
 function cambiarColorFondo(color){
     document.body.style.backgroundColor = color;
 }
 
-cambioColorFondo.addEventListener("input", () => {
-    cambiarColorFondo(cambioColorFondo.value);  
-});
+/**
+ * Menú desplegable (select) para elegir el tema visual: "claro" u "oscuro".
+ * @type {HTMLSelectElement}
+ */
 
 const cambioTema = document.getElementById("tema");
+
+/**
+ * Activa el tema visual indicado. No se escriben estilos en línea: solo se
+ * añaden o quitan con classList las clases ".tema-claro" y ".tema-oscuro"
+ * definidas en el archivo CSS.
+ *
+ * @param {string} tema - "oscuro" activa el modo oscuro; cualquier otro valor, el claro.
+ * @returns {void}
+ */
 
 function cambiarTema(tema){
     if(tema === "oscuro"){
@@ -84,14 +222,28 @@ function cambiarTema(tema){
     }
 }
 
+
+// Evento "change": el tema se aplica en cuanto el usuario cambia la opción del select
+
 cambioTema.addEventListener("change", () => {
     cambiarTema(cambioTema.value);
 });
+
+
+// Evento "input": el color se aplica en tiempo real mientras se mueve el selector
+
+cambioColorFondo.addEventListener("input", () => {
+    cambiarColorFondo(cambioColorFondo.value);  
+});
+
+
+// Guardar y restablecer se ejecutan al hacer clic en sus botones
 
 botonGuardado.addEventListener("click", guardarPreferencias);
 
 botonRestablecer.addEventListener("click", restablecerPreferencias);
 
+// Al cargar la página se restaura la configuración guardada 
 
 restaurarPreferencias();
 
